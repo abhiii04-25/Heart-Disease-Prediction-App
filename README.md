@@ -119,4 +119,4 @@ This project is open source and available under the [MIT License](LICENSE).
 
 ## 🙋‍♂️ Author
 
-Built by [Your Name] — feel free to connect or raise an issue if you spot a bug!
+Built by Abhishek Sontakke — feel free to connect or raise an issue if you spot a bug!
