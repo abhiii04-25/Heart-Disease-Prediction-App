@@ -1,122 +1,96 @@
-# Heart-Disease-Prediction-App
-A machine learning project that predicts the likelihood of heart disease from clinical parameters using Logistic Regression, deployed as an interactive Streamlit web app. Built as part of my journey learning ML — covering data preprocessing, feature encoding, model training, and deployment.
-# ❤️ Heart Disease Prediction using Machine Learning
+# 🫀 Heart Disease Prediction — ML Demo
 
-A machine learning project that predicts the likelihood of heart disease from a patient's clinical parameters using **Logistic Regression**, deployed as an interactive **Streamlit** web app. This project was built as part of my journey learning machine learning — applying core ML concepts end-to-end, from raw data to a working, deployable app.
+An interactive Streamlit app that demonstrates how a saved Logistic Regression model classifies selected clinical parameters. The interface includes grouped inputs, a model-output panel, an input summary, and a clear educational-use disclaimer.
 
-## 📌 Overview
+> **Medical disclaimer:** This app is for learning and demonstration only. It is not a medical device, does not provide a diagnosis, and must not be used to rule out disease or make healthcare decisions. Consult a qualified healthcare professional for personal medical concerns.
 
-This app takes standard clinical inputs (age, blood pressure, cholesterol, ECG results, etc.), preprocesses them to match the model's expected feature format, scales them, and returns a prediction of whether the patient is likely or unlikely to have heart disease.
+## ✨ Features
 
-> ⚠️ **Disclaimer:** This tool is for educational/demonstration purposes only and is **not** a substitute for professional medical diagnosis. Always consult a qualified healthcare professional.
+- **Polished Streamlit interface** with a dark, clinical dashboard theme
+- **11 input fields** covering age, sex, chest-pain category, blood pressure, cholesterol, fasting blood sugar, ECG category, maximum heart rate, exercise-induced angina, Oldpeak, and ST slope
+- **Saved Logistic Regression model** loaded from a pickle artifact
+- **Feature alignment and scaling** using the saved column schema and fitted scaler
+- **Model output panel** with a plain-language explanation and a summary of submitted values
+- **Input guidance** for the example clinical features
 
-## 🎯 What I Learned / Practiced
+## 🧠 Prediction pipeline
 
-This project helped me apply several core machine learning concepts hands-on:
-
-- **Data preprocessing** — handling categorical variables, encoding (one-hot encoding), and feature alignment
-- **Feature scaling** — using `StandardScaler` to normalize numerical inputs before feeding them to the model
-- **Classification modeling** — training and evaluating a **Logistic Regression** classifier for a binary classification problem
-- **Model persistence** — saving/loading trained models, scalers, and column schemas with `joblib`
-- **Model deployment** — turning a trained model into a usable, interactive web app with **Streamlit**
-- **End-to-end ML workflow** — going from raw tabular data to a deployed prediction tool, not just a notebook
-
-## 🚀 Demo
-
-Run locally with Streamlit (see [Getting Started](#-getting-started) below).
-
-## 🧠 How It Works
-
-1. The user enters clinical details through interactive sliders and dropdowns.
-2. Inputs are assembled into a single-row DataFrame and one-hot encoded to match the model's training feature set.
-3. Any missing expected columns are filled with `0` to align with the format the model was trained on.
-4. Features are scaled using a pre-fitted `StandardScaler`.
-5. The trained Logistic Regression model predicts the outcome (`1` = likely heart disease, `0` = unlikely).
-6. The result is displayed with a clear success/error message.
-
-## 🩺 Input Features
-
-| Feature | Description |
-|---|---|
-| Age | Patient's age in years |
-| Sex | Male / Female |
-| Chest Pain Type | Typical Angina, Atypical Angina, Non-Anginal Pain, Asymptomatic |
-| Resting Blood Pressure | Resting blood pressure (mm Hg) |
-| Cholesterol | Serum cholesterol (mg/dl) |
-| Fasting Blood Sugar | Whether fasting blood sugar > 120 mg/dl (0/1) |
-| Resting ECG | Normal, ST, LVH |
-| Max Heart Rate | Maximum heart rate achieved |
-| Exercise Angina | Exercise-induced angina (Y/N) |
-| Oldpeak | ST depression induced by exercise relative to rest |
-| ST Slope | Slope of the peak exercise ST segment (Upsloping, Flat, Downsloping) |
-
-## 🛠️ Tech Stack
-
-- **Python**
-- **Streamlit** — web app UI
-- **scikit-learn** — model training, scaling, and inference
-- **pandas** — data handling
-- **joblib** — model/scaler/artifact serialization
-
-## 📂 Project Structure
-
+```text
+Example clinical inputs
+       ↓
+DataFrame feature assembly
+       ↓
+Align to saved one-hot feature columns
+       ↓
+Saved StandardScaler
+       ↓
+Saved Logistic Regression model
+       ↓
+Predicted class label (0 or 1)
 ```
-heart-disease-prediction/
-├── app.py                       # Streamlit application
-├── LogisticRegression_heart.pkl # Trained Logistic Regression model
-├── scaler.pkl                   # Fitted StandardScaler
-├── columns.pkl                  # Expected feature columns (post one-hot encoding)
+
+The app preserves the saved model, scaler, feature column order, and input-to-feature mapping from the repository. It does not calculate a medically validated individual risk score.
+
+## 🛠️ Technology
+
+- Python
+- Streamlit
+- pandas
+- scikit-learn
+- joblib
+
+## 📁 Project structure
+
+```text
+Heart-Disease-Prediction-App/
+├── app.py                       # Streamlit UI and inference pipeline
+├── LogisticRegression_heart.pkl # Saved classifier
+├── scaler.pkl                   # Fitted scaler
+├── columns.pkl                  # Expected feature order
 ├── requirements.txt             # Python dependencies
 └── README.md
 ```
 
-## ⚙️ Getting Started
+## 🚀 Run locally
 
-### 1. Clone the repository
-```bash
-git clone https://github.com/<your-username>/heart-disease-prediction.git
-cd heart-disease-prediction
+Requires Python 3.10+ and pip.
+
+```powershell
+# Clone the repository
+git clone https://github.com/abhiii04-25/Heart-Disease-Prediction-App.git
+cd Heart-Disease-Prediction-App
+
+# Create and activate a virtual environment
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+
+# Install packages
+python -m pip install -r requirements.txt
+
+# Start the app
+python -m streamlit run app.py
 ```
 
-### 2. Install dependencies
-```bash
-pip install -r requirements.txt
-```
+Streamlit normally opens the local application at `http://localhost:8501`.
 
-### 3. Run the app
-```bash
-streamlit run app.py
-```
+## ☁️ Deploy to Streamlit Community Cloud
 
-The app will open automatically in your browser at `http://localhost:8501`.
+1. Sign in at [Streamlit Community Cloud](https://share.streamlit.io/) with GitHub.
+2. Choose **Create app** and select this repository.
+3. Use branch `main` and main file `app.py`.
+4. Click **Deploy** and review the app logs if startup fails.
 
-## 📦 requirements.txt
+The repository contains the model, scaler, and expected feature-column artifacts needed by the app. If the saved model was produced with an older scikit-learn version, deployment may require matching that version in `requirements.txt`.
 
-```
-streamlit
-pandas
-scikit-learn
-joblib
-```
+## ⚠️ Important limitations
 
-## 📊 Dataset
+- The model's predicted class is a machine-learning output, not a clinical diagnosis.
+- The app's saved model and scaler should be validated and versioned together.
+- A negative model output does not rule out heart disease, and a positive output does not confirm it.
+- Do not use this demonstration for emergency triage, treatment choices, or personal medical decisions.
 
-The model was trained on the **Heart Failure Prediction Dataset** (commonly sourced from Kaggle / UCI), which includes clinical attributes such as age, sex, chest pain type, blood pressure, cholesterol, ECG results, and more, labeled with the presence or absence of heart disease.
+## 👨‍💻 Author
 
-## 🔮 Future Improvements
+Built by Abhishek Sontakke as an end-to-end machine-learning learning project.
 
-As I continue learning, I plan to extend this project with:
-
-- Model performance metrics (accuracy, precision, recall, ROC-AUC) displayed in the app
-- Comparing Logistic Regression against other classifiers (Random Forest, XGBoost, SVM)
-- Cross-validation and hyperparameter tuning
-- Input validation and helpful tooltips for each field
-- Deploying the app (e.g., Streamlit Community Cloud) and linking a live demo here
-
-## 📄 License
-
-This project is open source and available under the [MIT License](LICENSE).
-
-## 🙋‍♂️ Author
-
-Built by Abhishek Sontakke — feel free to connect or raise an issue if you spot a bug!
+Source: [Heart-Disease-Prediction-App on GitHub](https://github.com/abhiii04-25/Heart-Disease-Prediction-App)
