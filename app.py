@@ -126,6 +126,16 @@ st.markdown(
     .verdict .score { font-size: 1.05rem; color: rgba(255,255,255,.88); margin-bottom: 14px; }
     .verdict .score b { font-size: 1.5rem; }
     .verdict p { color: rgba(255,255,255,.80); font-size: .9rem; line-height: 1.6; margin: 0; }
+    .verdict .meaning { font-size: 1rem; font-weight: 600; color: #fff; margin-bottom: 10px; }
+    .chip { display: inline-block; padding: 4px 12px; border-radius: 999px; border: 1px solid rgba(255,255,255,.35);
+      font-size: .78rem; font-weight: 600; color: #fff; background: rgba(255,255,255,.10); margin-bottom: 12px; }
+    .legend { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; margin: 8px 0 14px; }
+    .legend > div { padding: 16px; border-radius: 14px; border: 1px solid; }
+    .legend .c1 { border-color: rgba(255,123,138,.5); background: rgba(255,123,138,.07); }
+    .legend .c0 { border-color: rgba(113,229,209,.5); background: rgba(113,229,209,.07); }
+    .legend b { display: block; font-size: 1rem; color: #fff; margin-bottom: 6px; }
+    .legend span { color: #b8c5db; font-size: .88rem; line-height: 1.6; }
+    @media(max-width: 600px) { .legend { grid-template-columns: 1fr; } }
     @media(max-width: 900px) { main .block-container { padding: 1rem 1rem 2rem; } .steps { grid-template-columns: 1fr; } }
     @media(max-width: 600px) { .hero { border-radius: 19px; padding: 23px 19px; } .hero h1 { font-size: 2.25rem; } }
     </style>
@@ -328,15 +338,28 @@ with right_col:
         positive = result["cls"] == 1
         proba = result["proba"]
         score_html = f'<div class="score">Model score for class 1: <b>{proba:.0%}</b></div>' if proba is not None else ""
+        if proba is None:
+            chip = ""
+        else:
+            strength = abs(proba - 0.5) * 2  # 0 = coin flip, 1 = very sure
+            level = "High" if strength >= 0.6 else "Moderate" if strength >= 0.3 else "Low"
+            chip = f'<div class="chip">Model confidence: {level}</div>'
+        meaning = (
+            "Class 1: similar to patients with heart disease in the training data"
+            if positive else
+            "Class 0: similar to patients without heart disease in the training data"
+        )
         st.markdown(
             f"""
             <div class="verdict {'positive' if positive else 'negative'}">
               <div class="tag">Prediction result</div>
               <div class="big">{'POSITIVE' if positive else 'NEGATIVE'} · Class {result['cls']}</div>
+              <div class="meaning">{meaning}</div>
               {score_html}
-              <p>{'The model assigned these inputs to its positive class. This does not mean anyone has heart disease.'
+              {chip}
+              <p>{'This is a pattern match, not a diagnosis. Consider discussing it with a doctor.'
                   if positive else
-                  'The model assigned these inputs to its negative class. This cannot rule out heart disease.'}</p>
+                  'This does not rule out heart disease. See a doctor if you have symptoms.'}</p>
             </div>
             """,
             unsafe_allow_html=True,
@@ -398,6 +421,41 @@ if result is not None and not result["problems"]:
             st.dataframe(summary_df, use_container_width=True, hide_index=True)
             with st.expander("Encoded vector sent to the model"):
                 st.dataframe(result["input_df"].T.rename(columns={0: "value"}), use_container_width=True)
+
+# ---------- How to read the result (always visible) ----------
+st.divider()
+st.markdown('<div class="section-kicker">Understanding the result</div>', unsafe_allow_html=True)
+with st.container(border=True):
+    st.markdown("### How to read this result")
+    st.markdown(
+        """
+        <div class="legend">
+          <div class="c1"><b>Class 1 · Positive</b>
+            <span>The model thinks these values resemble patients who <b>had heart disease</b> in its training data.
+            It is a flag to talk to a doctor, not a diagnosis.</span></div>
+          <div class="c0"><b>Class 0 · Negative</b>
+            <span>The model thinks these values resemble patients who <b>did not have heart disease</b> in its training data.
+            It is <b>not</b> a clean bill of health.</span></div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        """
+        **About the model score and confidence**
+        - The score is how strongly the model leans toward class 1. Near **0%** means it leans class 0, near **100%** class 1, and around **50%** means it is unsure.
+        - Confidence only describes how far the score is from 50%. It says how decisive the model is, **not** how likely you are to have the disease.
+        - The score is **not a medical risk percentage**. The model was trained on a small public dataset and has not been clinically validated.
+
+        **What it cannot do**
+        - It cannot see your symptoms, family history, medicines, scans or blood tests beyond these 11 numbers.
+        - A wrong answer is possible in both directions, so a negative result can miss real disease.
+
+        **When to get real medical help**
+        - Chest pain or pressure, shortness of breath, fainting, or pain spreading to the arm or jaw need urgent care. Call your local emergency number (112 in India) instead of using this app.
+        - For routine concerns such as blood pressure, cholesterol or family history, see a doctor for proper tests.
+        """
+    )
 
 st.divider()
 st.caption("CardioLens · Heart Disease Prediction ML Demo · For educational use only, not a medical diagnosis.")
