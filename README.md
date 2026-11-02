@@ -13,6 +13,10 @@ An interactive Streamlit app that demonstrates how a saved Logistic Regression m
 - **Model output panel** with a plain-language explanation and a summary of submitted values
 - **Input guidance** for the example clinical features
 
+## 🚀 Live Demo
+
+Try the deployed Heart Disease Prediction app: **[Open Live App](https://abhi-heart-disease-ml.streamlit.app/)**
+
 ## 🧠 Prediction pipeline
 
 ```text
