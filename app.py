@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import altair as alt
 import joblib
 import pandas as pd
 import streamlit as st
@@ -126,6 +127,11 @@ st.markdown(
     .verdict .score { font-size: 1.05rem; color: rgba(255,255,255,.88); margin-bottom: 14px; }
     .verdict .score b { font-size: 1.5rem; }
     .verdict p { color: rgba(255,255,255,.80); font-size: .9rem; line-height: 1.6; margin: 0; }
+    .verdict .cls { font-size: 1.5rem; font-weight: 600; color: rgba(255,255,255,.88); margin-bottom: 10px; }
+    .verdict .bar { height: 10px; max-width: 320px; margin: 0 auto 16px; border-radius: 999px; background: rgba(255,255,255,.16); overflow: hidden; }
+    .verdict .bar i { display: block; height: 100%; border-radius: 999px; }
+    .verdict.positive .bar i { background: #ff9e9e; }
+    .verdict.negative .bar i { background: #71e5d1; }
     .verdict .meaning { font-size: 1rem; font-weight: 600; color: #fff; margin-bottom: 10px; }
     .chip { display: inline-block; padding: 4px 12px; border-radius: 999px; border: 1px solid rgba(255,255,255,.35);
       font-size: .78rem; font-weight: 600; color: #fff; background: rgba(255,255,255,.10); margin-bottom: 12px; }
@@ -133,7 +139,7 @@ st.markdown(
     .legend > div { padding: 16px; border-radius: 14px; border: 1px solid; }
     .legend .c1 { border-color: rgba(255,123,138,.5); background: rgba(255,123,138,.07); }
     .legend .c0 { border-color: rgba(113,229,209,.5); background: rgba(113,229,209,.07); }
-    .legend b { display: block; font-size: 1rem; color: #fff; margin-bottom: 6px; }
+    .legend .t { display: block; font-size: 1rem; color: #fff; margin-bottom: 6px; }
     .legend span { color: #b8c5db; font-size: .88rem; line-height: 1.6; }
     @media(max-width: 600px) { .legend { grid-template-columns: 1fr; } }
     @media(max-width: 900px) { main .block-container { padding: 1rem 1rem 2rem; } .steps { grid-template-columns: 1fr; } }
@@ -160,7 +166,7 @@ EXAMPLES = {
     "Example 1": {"age": 35, "sex": "Female", "cp": "Atypical Angina", "bp": 115, "chol": 190, "fbs": 0,
                   "ecg": "Normal", "maxhr": 175, "exang": "No", "oldpeak": 0.0, "slope": "Upsloping"},
     "Example 2": {"age": 60, "sex": "Male", "cp": "Asymptomatic", "bp": 150, "chol": 260, "fbs": 1,
-                  "ecg": "ST", "maxhr": 110, "exang": "Yes", "oldpeak": 2.5, "slope": "Flat"},
+                  "ecg": "ST-T abnormality", "maxhr": 110, "exang": "Yes", "oldpeak": 2.5, "slope": "Flat"},
 }
 for key, value in DEFAULTS.items():
     st.session_state.setdefault(key, value)
@@ -236,7 +242,7 @@ st.markdown(
         pushed the result.
       </div>
       <div class="pills">
-        <span>♡ Logistic Regression</span><span>⌁ 11 clinical inputs</span><span>◈ Interactive ML demo</span>
+        <span>Logistic Regression</span><span>11 clinical inputs</span><span>Explainable result</span>
       </div>
     </section>
     """,
@@ -337,7 +343,7 @@ with right_col:
     else:
         positive = result["cls"] == 1
         proba = result["proba"]
-        score_html = f'<div class="score">Model score for class 1: <b>{proba:.0%}</b></div>' if proba is not None else ""
+        score_html = f'<div class="score">Model score for class 1: <b>{proba:.0%}</b></div><div class="bar"><i style="width:{proba*100:.0f}%"></i></div>' if proba is not None else ""
         if proba is None:
             chip = ""
         else:
@@ -353,7 +359,8 @@ with right_col:
             f"""
             <div class="verdict {'positive' if positive else 'negative'}">
               <div class="tag">Prediction result</div>
-              <div class="big">{'POSITIVE' if positive else 'NEGATIVE'} · Class {result['cls']}</div>
+              <div class="big">{'POSITIVE' if positive else 'NEGATIVE'}</div>
+              <div class="cls">Class {result['cls']}</div>
               <div class="meaning">{meaning}</div>
               {score_html}
               {chip}
@@ -364,8 +371,6 @@ with right_col:
             """,
             unsafe_allow_html=True,
         )
-        if proba is not None:
-            st.progress(proba)
         if max_hr > 220 - age:
             st.warning("Maximum heart rate is above the common age-based estimate (220 − age). Please double-check it.")
         st.markdown(
@@ -394,7 +399,23 @@ if result is not None and not result["problems"]:
                 contrib = pd.Series(model.coef_[0] * result["scaled"][0], index=expected_columns)
                 top = contrib.reindex(contrib.abs().sort_values(ascending=False).index).head(6)
                 st.markdown("### What pushed the result")
-                st.bar_chart(top.sort_values())
+                chart_df = top.reset_index()
+                chart_df.columns = ["Feature", "Contribution"]
+                chart_df["Pushes toward"] = ["Class 1" if v > 0 else "Class 0" for v in chart_df["Contribution"]]
+                chart = (
+                    alt.Chart(chart_df)
+                    .mark_bar()
+                    .encode(
+                        x=alt.X("Contribution:Q", title="Push on the result (right = toward class 1)"),
+                        y=alt.Y("Feature:N", sort=list(chart_df["Feature"]), title=None),
+                        color=alt.Color("Pushes toward:N",
+                                        scale=alt.Scale(domain=["Class 1", "Class 0"], range=["#ff9e9e", "#71e5d1"]),
+                                        legend=alt.Legend(orient="bottom", title=None)),
+                        tooltip=["Feature", alt.Tooltip("Contribution:Q", format=".2f"), "Pushes toward"],
+                    )
+                    .properties(height=280)
+                )
+                st.altair_chart(chart, use_container_width=True)
                 st.caption("Positive bars push toward class 1, negative toward class 0. This describes the model, not causes.")
             else:
                 st.info("This model does not expose coefficients.")
@@ -418,7 +439,7 @@ if result is not None and not result["problems"]:
                 ],
                 columns=["Input", "Value", "Unit / note"],
             ).astype({"Value": str})
-            st.dataframe(summary_df, use_container_width=True, hide_index=True)
+            st.dataframe(summary_df, use_container_width=True, hide_index=True, height=35 * (len(summary_df) + 1) + 3)
             with st.expander("Encoded vector sent to the model"):
                 st.dataframe(result["input_df"].T.rename(columns={0: "value"}), use_container_width=True)
 
@@ -430,10 +451,10 @@ with st.container(border=True):
     st.markdown(
         """
         <div class="legend">
-          <div class="c1"><b>Class 1 · Positive</b>
+          <div class="c1"><b class="t">Class 1 · Positive</b>
             <span>The model thinks these values resemble patients who <b>had heart disease</b> in its training data.
             It is a flag to talk to a doctor, not a diagnosis.</span></div>
-          <div class="c0"><b>Class 0 · Negative</b>
+          <div class="c0"><b class="t">Class 0 · Negative</b>
             <span>The model thinks these values resemble patients who <b>did not have heart disease</b> in its training data.
             It is <b>not</b> a clean bill of health.</span></div>
         </div>
