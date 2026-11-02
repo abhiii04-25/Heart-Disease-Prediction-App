@@ -3,6 +3,7 @@ from pathlib import Path
 import joblib
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
 st.set_page_config(
     page_title="Heart Disease Prediction | ML Demo",
@@ -114,6 +115,17 @@ st.markdown(
     .step { padding: 15px 13px; border: 1px solid rgba(151,179,225,.16); border-radius: 14px; background: rgba(255,255,255,.025); }
     .step b { display: block; color: #e7eeff; font-size: .85rem; margin-bottom: 5px; }
     .step small { color: #92a2bd; line-height: 1.5; font-size: .76rem; }
+    @keyframes pop { 0% { transform: scale(.96); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+    .verdict { padding: 30px 24px; border-radius: 22px; text-align: center; border: 2px solid; margin: 4px 0 14px; animation: pop .45s ease; }
+    .verdict.positive { background: linear-gradient(145deg,#6a2132,#2b1019); border-color: #ff7b8a;
+      box-shadow: 0 0 0 5px rgba(255,123,138,.13), 0 22px 60px rgba(255,90,110,.28); }
+    .verdict.negative { background: linear-gradient(145deg,#0f5148,#0a2327); border-color: #71e5d1;
+      box-shadow: 0 0 0 5px rgba(113,229,209,.12), 0 22px 60px rgba(60,220,190,.22); }
+    .verdict .tag { font-size: .74rem; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; color: rgba(255,255,255,.72); margin-bottom: 10px; }
+    .verdict .big { font-family: 'Space Grotesk','DM Sans',sans-serif; font-size: clamp(2rem,4.5vw,3rem); font-weight: 700; line-height: 1.05; color: #fff; margin-bottom: 6px; }
+    .verdict .score { font-size: 1.05rem; color: rgba(255,255,255,.88); margin-bottom: 14px; }
+    .verdict .score b { font-size: 1.5rem; }
+    .verdict p { color: rgba(255,255,255,.80); font-size: .9rem; line-height: 1.6; margin: 0; }
     @media(max-width: 900px) { main .block-container { padding: 1rem 1rem 2rem; } .steps { grid-template-columns: 1fr; } }
     @media(max-width: 600px) { .hero { border-radius: 19px; padding: 23px 19px; } .hero h1 { font-size: 2.25rem; } }
     </style>
@@ -266,32 +278,8 @@ with left_col:
                 st_slope = st.selectbox("Peak exercise ST slope", list(ST_SLOPE), key="slope")
             submitted = st.form_submit_button("♡  Run prediction", type="primary", use_container_width=True)
 
-with right_col:
-    with st.container(border=True):
-        st.markdown("### What happens next?")
-        st.markdown(
-            """
-            <div class="steps">
-              <div class="step"><b>01 · Inputs</b><small>Numeric and categorical values.</small></div>
-              <div class="step"><b>02 · Prepare</b><small>One-hot alignment and saved scaler.</small></div>
-              <div class="step"><b>03 · Classify</b><small>Logistic Regression predicts a class.</small></div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        m1, m2 = st.columns(2)
-        m1.metric("Input fields", "11")
-        m2.metric("Model features", str(len(expected_columns)))
-        st.markdown(
-            '<div class="notice">Demonstration only. This is not a validated personal risk estimate '
-            "and cannot replace advice from a health professional.</div>",
-            unsafe_allow_html=True,
-        )
-
-# ---------- Output ----------
-st.divider()
-st.markdown('<div class="section-kicker">02 / Model output</div>', unsafe_allow_html=True)
-
+# ---------- Run the model (before drawing the right column so the result can sit beside the form) ----------
+result = None
 if submitted:
     values = {
         "age": age, "sex": sex, "cp": chest_pain_type, "bp": resting_bp, "chol": cholesterol,
@@ -299,59 +287,98 @@ if submitted:
         "exang": exercise_angina, "oldpeak": oldpeak, "slope": st_slope,
     }
     input_df, problems = build_features(values)
+    result = {"problems": problems, "input_df": input_df}
+    if not problems:
+        scaled_input = scaler.transform(input_df)
+        result["scaled"] = scaled_input
+        result["cls"] = int(model.predict(scaled_input)[0])
+        result["proba"] = float(model.predict_proba(scaled_input)[0][1]) if hasattr(model, "predict_proba") else None
 
-    if problems:
+with right_col:
+    st.markdown('<div id="result-anchor"></div>', unsafe_allow_html=True)
+
+    if result is None:
+        with st.container(border=True):
+            st.markdown("### What happens next?")
+            st.markdown(
+                """
+                <div class="steps">
+                  <div class="step"><b>01 · Inputs</b><small>Numeric and categorical values.</small></div>
+                  <div class="step"><b>02 · Prepare</b><small>One-hot alignment and saved scaler.</small></div>
+                  <div class="step"><b>03 · Classify</b><small>Logistic Regression predicts a class.</small></div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            m1, m2 = st.columns(2)
+            m1.metric("Input fields", "11")
+            m2.metric("Model features", str(len(expected_columns)))
+            st.markdown(
+                '<div class="notice">Your result will appear here, right next to the form, '
+                "after you press <b>Run prediction</b>.</div>",
+                unsafe_allow_html=True,
+            )
+    elif result["problems"]:
         st.error("Input encoding does not match the saved model, so the result would be unreliable:")
-        for p in problems:
+        for p in result["problems"]:
             st.write("• " + p)
         with st.expander("Columns the model expects"):
             st.code("\n".join(expected_columns))
-        st.stop()
-
-    if max_hr > 220 - age:
-        st.warning("Maximum heart rate is above the common age-based estimate (220 − age). Please double-check it.")
-
-    scaled_input = scaler.transform(input_df)
-    predicted_class = int(model.predict(scaled_input)[0])
-    probability = float(model.predict_proba(scaled_input)[0][1]) if hasattr(model, "predict_proba") else None
-
-    result_col, details_col = st.columns([1.2, 0.8], gap="large")
-    with result_col:
-        positive = predicted_class == 1
-        heading = "Model output: positive class" if positive else "Model output: negative class"
-        copy = (
-            "The classifier assigned these inputs to its positive class (label 1). This does not "
-            "establish that anyone has heart disease. Seek a qualified professional for real concerns."
-            if positive else
-            "The classifier assigned these inputs to its negative class (label 0). This cannot rule "
-            "out heart disease. Seek medical advice for symptoms, whatever this demo says."
-        )
+    else:
+        positive = result["cls"] == 1
+        proba = result["proba"]
+        score_html = f'<div class="score">Model score for class 1: <b>{proba:.0%}</b></div>' if proba is not None else ""
         st.markdown(
             f"""
-            <div class="result-card {'alert' if positive else 'calm'}">
-              <div class="overline">Classification completed</div>
-              <h2>{heading}</h2><p>{copy}</p>
+            <div class="verdict {'positive' if positive else 'negative'}">
+              <div class="tag">Prediction result</div>
+              <div class="big">{'POSITIVE' if positive else 'NEGATIVE'} · Class {result['cls']}</div>
+              {score_html}
+              <p>{'The model assigned these inputs to its positive class. This does not mean anyone has heart disease.'
+                  if positive else
+                  'The model assigned these inputs to its negative class. This cannot rule out heart disease.'}</p>
             </div>
             """,
             unsafe_allow_html=True,
         )
-        if probability is not None:
-            st.write(f"**Model score for class 1: {probability:.0%}**")
-            st.progress(probability)
-            st.caption("An uncalibrated model score on a small public dataset, not a medical probability.")
+        if proba is not None:
+            st.progress(proba)
+        if max_hr > 220 - age:
+            st.warning("Maximum heart rate is above the common age-based estimate (220 − age). Please double-check it.")
+        st.markdown(
+            '<div class="notice">Educational demo only, not a diagnosis. Please see a qualified '
+            "health professional for any real concern.</div>",
+            unsafe_allow_html=True,
+        )
+        # Bring the result into view (matters on phones, where the column stacks below the form)
+        components.html(
+            """<script>
+            const el = window.parent.document.getElementById('result-anchor');
+            if (el) el.scrollIntoView({behavior: 'smooth', block: 'start'});
+            </script>""",
+            height=0,
+        )
 
-        # Which inputs pushed the result? (coefficient x scaled value)
-        if hasattr(model, "coef_"):
-            contrib = pd.Series(model.coef_[0] * scaled_input[0], index=expected_columns)
-            top = contrib.reindex(contrib.abs().sort_values(ascending=False).index).head(6)
-            st.markdown("#### What pushed the result")
-            st.bar_chart(top.sort_values())
-            st.caption("Positive bars push toward class 1, negative toward class 0. This describes the model, not causes.")
+# ---------- Details (only after a successful run) ----------
+if result is not None and not result["problems"]:
+    st.divider()
+    st.markdown('<div class="section-kicker">Details · why the model said this</div>', unsafe_allow_html=True)
+    chart_col, table_col = st.columns([1.1, 0.9], gap="large")
 
-    with details_col:
+    with chart_col:
+        with st.container(border=True):
+            if hasattr(model, "coef_"):
+                contrib = pd.Series(model.coef_[0] * result["scaled"][0], index=expected_columns)
+                top = contrib.reindex(contrib.abs().sort_values(ascending=False).index).head(6)
+                st.markdown("### What pushed the result")
+                st.bar_chart(top.sort_values())
+                st.caption("Positive bars push toward class 1, negative toward class 0. This describes the model, not causes.")
+            else:
+                st.info("This model does not expose coefficients.")
+
+    with table_col:
         with st.container(border=True):
             st.markdown("### Submitted input summary")
-            st.metric("Predicted class label", str(predicted_class))
             summary_df = pd.DataFrame(
                 [
                     ("Age", age, "years"),
@@ -370,18 +397,7 @@ if submitted:
             ).astype({"Value": str})
             st.dataframe(summary_df, use_container_width=True, hide_index=True)
             with st.expander("Encoded vector sent to the model"):
-                st.dataframe(input_df.T.rename(columns={0: "value"}), use_container_width=True)
-else:
-    st.markdown(
-        """
-        <div class="result-card">
-          <div class="overline">Awaiting submitted values</div>
-          <h2>Your model output will appear here</h2>
-          <p>Fill in the form (or load an example from the sidebar) and select <b>Run prediction</b>.</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+                st.dataframe(result["input_df"].T.rename(columns={0: "value"}), use_container_width=True)
 
 st.divider()
 st.caption("CardioLens · Heart Disease Prediction ML Demo · For educational use only, not a medical diagnosis.")
